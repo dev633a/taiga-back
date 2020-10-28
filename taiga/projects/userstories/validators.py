@@ -137,6 +137,49 @@ class UpdateUserStoriesOrderBulkValidator(ProjectExistsValidator, validators.Val
         return attrs
 
 
+class UpdateUserStoriesKanbanOrderBulkValidator(ProjectExistsValidator, validators.Validator):
+    project_id = serializers.IntegerField()
+    status_id = serializers.IntegerField()
+    swimlane_id = serializers.IntegerField(required=False)
+    bulk_stories = serializers.IntegerField(many=True, min_value=1)
+
+    def validate_status_id(self, attrs, source):
+        filters = {
+            "project__id": attrs["project_id"],
+            "id": attrs[source]
+        }
+
+        if not UserStoryStatus.objects.filter(**filters).exists():
+            raise ValidationError(_("Invalid user story status id. The status must belong "
+                                    "to the same project."))
+
+        return attrs
+
+    def validate_swimlane_id(self, attrs, source):
+        filters = {
+            "project__id": attrs["project_id"],
+            "id": attrs[source]
+        }
+
+        if not Swimlane.objects.filter(**filters).exists():
+            raise ValidationError(_("Invalid swimlane id. The swimlane must belong "
+                                    "to the same project."))
+
+        return attrs
+
+    def validate_bulk_stories(self, attrs, source):
+        filters = {
+            "project__id": attrs["project_id"],
+            "id__in": attrs[source]
+        }
+
+        if models.UserStory.objects.filter(**filters).count() != len(filters["id__in"]):
+            raise ValidationError(_("Invalid user story ids. All stories must belong to the same project "
+                                    "and, if it exists, to the same status and milestone."))
+
+        return attrs
+
+
 # Milestone bulk validators
 
 class _UserStoryMilestoneBulkValidator(validators.Validator):
